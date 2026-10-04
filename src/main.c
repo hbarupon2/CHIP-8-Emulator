@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #define MEM_SIZE 4096
 #define ROM_START 0x200
@@ -28,6 +29,7 @@ typedef struct {
 
 uint16_t fetch_instruction(Chip8 *chip);
 Instruction decode_instruction(uint16_t opcode);
+int execute_instruction(Chip8 *chip, Instruction instruction);
 
 int main(int argc, char **argv);
 
@@ -78,7 +80,9 @@ int main(int argc, char **argv) {
 
     fclose(rom_file);
 
-    for (int i = 0; i < 6; i++) {
+    int should_continue = 0;
+
+    while (should_continue != -1) {
         uint16_t prev_pc = chip.pc;
         uint16_t opcode = fetch_instruction(&chip);
         Instruction instruction = decode_instruction(opcode);
@@ -86,6 +90,17 @@ int main(int argc, char **argv) {
             "Program counter: 0x%03X, Instruction: 0x%04X, First Nibble: 0x%01X, X: 0x%01X, Y: 0x%01X, N: 0x%01X, NN: 0x%02X, NNN: 0x%03X \n",
             prev_pc, opcode, instruction.first_nibble, instruction.x, instruction.y, instruction.n, instruction.nn,
             instruction.nnn);
+
+        should_continue = execute_instruction(&chip, instruction);
+
+        for (int i = 0; i < 16; i++)
+            printf("V[%d]: 0x%02X\n", i, chip.V[i]);
+        printf("I: 0x%04X\n", chip.I);
+        printf("PC: 0x%04X\n", chip.pc);
+
+        struct timespec ts = { .tv_sec = 0, .tv_nsec = 2.5e8 };
+        nanosleep(&ts, NULL);
+        fflush(stdout);
     }
 
     return 0;
@@ -108,4 +123,26 @@ Instruction decode_instruction(uint16_t opcode) {
     instruction.nnn = opcode & 0xFFF;
 
     return instruction;
+}
+
+int execute_instruction(Chip8 *chip, Instruction instruction) {
+    switch (instruction.first_nibble) {
+        case 0x6:
+            chip->V[instruction.x] = instruction.nn;
+            break;
+        case 0x7:
+            chip->V[instruction.x] += instruction.nn;
+            break;
+        case 0xA:
+            chip->I = instruction.nnn;
+            break;
+        case 0x1:
+            chip->pc = instruction.nnn;
+            break;
+        default:
+            printf("Unimplemented opcode: 0x%01X\n", instruction.first_nibble);
+            return -1;
+    }
+
+    return 0;
 }
