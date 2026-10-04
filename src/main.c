@@ -17,12 +17,21 @@ typedef struct {
     uint16_t pc;
 } Chip8;
 
+typedef struct {
+    uint8_t first_nibble;
+    uint8_t x;
+    uint8_t y;
+    uint8_t n;
+    uint8_t nn;
+    uint16_t nnn;
+} Instruction;
+
 uint16_t fetch_instruction(Chip8 *chip);
+Instruction decode_instruction(uint16_t opcode);
 
 int main(int argc, char **argv);
 
 int main(int argc, char **argv) {
-
     if (argc != 2) {
         fprintf(stderr, "Usage: ./CHIP8 path/to/rom \n");
         return -1;
@@ -72,15 +81,31 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 6; i++) {
         uint16_t prev_pc = chip.pc;
         uint16_t opcode = fetch_instruction(&chip);
-        printf("Program counter: 0x%03X, Instruction: 0x%04X \n", prev_pc, opcode);
+        Instruction instruction = decode_instruction(opcode);
+        printf(
+            "Program counter: 0x%03X, Instruction: 0x%04X, First Nibble: 0x%01X, X: 0x%01X, Y: 0x%01X, N: 0x%01X, NN: 0x%02X, NNN: 0x%03X \n",
+            prev_pc, opcode, instruction.first_nibble, instruction.x, instruction.y, instruction.n, instruction.nn,
+            instruction.nnn);
     }
 
     return 0;
 }
 
 uint16_t fetch_instruction(Chip8 *chip) {
-    uint16_t opcode = chip->mem[chip->pc] << 8 | chip->mem[chip->pc + 1];
+    const uint16_t opcode = chip->mem[chip->pc] << 8 | chip->mem[chip->pc + 1];
     chip->pc += 2;
 
     return opcode;
+}
+
+Instruction decode_instruction(uint16_t opcode) {
+    Instruction instruction = {0};
+    instruction.first_nibble = (opcode >> 12) & 0xF;
+    instruction.x = (opcode >> 8) & 0xF;
+    instruction.y = (opcode >> 4) & 0xF;
+    instruction.n = opcode & 0xF;
+    instruction.nn = opcode & 0xFF;
+    instruction.nnn = opcode & 0xFFF;
+
+    return instruction;
 }
