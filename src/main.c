@@ -17,10 +17,14 @@ typedef struct {
     uint16_t pc;
 } Chip8;
 
+uint16_t fetch_instruction(Chip8 *chip);
+
+int main(int argc, char **argv);
+
 int main(int argc, char **argv) {
 
     if (argc != 2) {
-        fprintf(stderr, "Usage: ./CHIP8 path/to/rom");
+        fprintf(stderr, "Usage: ./CHIP8 path/to/rom \n");
         return -1;
     }
 
@@ -48,7 +52,10 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    fseek(rom_file, 0, SEEK_SET);
+    if (fseek(rom_file, 0, SEEK_SET) != 0) {
+        fclose(rom_file);
+        return -1;
+    }
 
     Chip8 chip = {0};
     chip.pc = ROM_START;
@@ -62,13 +69,18 @@ int main(int argc, char **argv) {
 
     fclose(rom_file);
 
-    for (size_t address = ROM_START; address < ROM_START + loaded_bytes - 1; address+=2) {
-        printf("0x%03X: 0x%04X\n", (int) address, (chip.mem[address] << 8) + chip.mem[address + 1]);
+    for (int i = 0; i < 6; i++) {
+        uint16_t prev_pc = chip.pc;
+        uint16_t opcode = fetch_instruction(&chip);
+        printf("Program counter: 0x%03X, Instruction: 0x%04X \n", prev_pc, opcode);
     }
 
     return 0;
 }
 
 uint16_t fetch_instruction(Chip8 *chip) {
-    
+    uint16_t opcode = chip->mem[chip->pc] << 8 | chip->mem[chip->pc + 1];
+    chip->pc += 2;
+
+    return opcode;
 }
