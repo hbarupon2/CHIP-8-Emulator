@@ -8,7 +8,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(SDL2 REQUIRED)
 
 add_executable(CHIP8
-    src/main.c
+        src/main.c
+        src/fontset.h
 )
 target_compile_options(CHIP8 PRIVATE
     -Wall

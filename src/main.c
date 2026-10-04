@@ -8,8 +8,11 @@
 #include <string.h>
 #include <time.h>
 
+#include "fontset.h"
+
 #define MEM_SIZE 4096
 #define ROM_START 0x200
+#define FONT_START 0x050
 
 typedef struct {
     uint8_t mem[MEM_SIZE];
@@ -80,6 +83,9 @@ int main(int argc, char **argv) {
 
     fclose(rom_file);
 
+    for (size_t i = FONT_START; i < FONT_START + sizeof(chip8_fontset) / sizeof(char); i++)
+        chip.mem[i] = chip8_fontset[i - FONT_START];
+
     int should_continue = 0;
 
     while (should_continue != -1) {
@@ -138,6 +144,16 @@ int execute_instruction(Chip8 *chip, Instruction instruction) {
             break;
         case 0x1:
             chip->pc = instruction.nnn;
+            break;
+        case 0xF:
+            switch (instruction.nn) {
+                case 0x29:
+                    chip->I = FONT_START + (chip->V[instruction.x] & 0xF) * 5;
+                    break;
+                default:
+                    printf("Unimplemented opcode: 0x%01X\n", instruction.first_nibble);
+                    return -1;
+            }
             break;
         default:
             printf("Unimplemented opcode: 0x%01X\n", instruction.first_nibble);
