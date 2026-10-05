@@ -10,6 +10,9 @@ find_package(SDL2 REQUIRED)
 add_executable(CHIP8
         src/main.c
         src/fontset.h
+        src/utilities.h
+        src/chip.h
+        src/chip.c
 )
 target_compile_options(CHIP8 PRIVATE
     -Wall
