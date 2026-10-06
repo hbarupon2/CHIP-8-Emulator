@@ -3,6 +3,8 @@
  */
 
 
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <time.h>
 
 #include "chip.h"
@@ -50,7 +52,7 @@ int main(int argc, char **argv) {
     chip.pc = ROM_START;
 
     size_t loaded_bytes = fread(chip.mem + ROM_START, sizeof(chip.mem[0]), size, rom_file);
-    if (loaded_bytes != (size_t)size) {
+    if (loaded_bytes != (size_t) size) {
         fprintf(stderr, "Issue reading ROM file.\n");
         fclose(rom_file);
         return -1;
@@ -61,9 +63,44 @@ int main(int argc, char **argv) {
     for (size_t i = FONT_START; i < FONT_START + sizeof(chip8_fontset) / sizeof(char); i++)
         chip.mem[i] = chip8_fontset[i - FONT_START];
 
-    int should_continue = 0;
+    // Open SDl window
 
-    while (should_continue != -1) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not initialize SDL - %s\n", SDL_GetError());
+        return -1;
+    }
+
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+
+    if (!SDL_CreateWindowAndRenderer(
+            "CHIP-8 Emulator",
+            DISPLAY_W * 10,
+            DISPLAY_H * 10,
+            0,
+            &window,
+            &renderer)
+    ) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not create window and renderer - %s\n", SDL_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return -1;
+    }
+
+    SDL_SetRenderScale(renderer, 10, 10);
+
+    int should_continue = 0;
+    bool should_quit = false;
+
+    while (should_continue != -1 && should_quit == false) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_EVENT_QUIT) {
+                should_quit = true;
+            }
+        }
+
         uint16_t prev_pc = chip.pc;
         uint16_t opcode = fetch_instruction(&chip);
         Instruction instruction = decode_instruction(opcode);
@@ -82,7 +119,27 @@ int main(int argc, char **argv) {
         struct timespec ts = {.tv_sec = 0, .tv_nsec = 2.5e8};
         nanosleep(&ts, NULL);
         clear_screen();
+
+        if (chip.draw_flag) {
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+            for (int y = 0; y < DISPLAY_H; y++) {
+                for (int x = 0; x < DISPLAY_W; x++) {
+                    if (chip.display[y * DISPLAY_W + x] == 0)
+                        continue;
+                    SDL_FRect pixel = {x, y, 1, 1};
+                    SDL_RenderFillRect(renderer, &pixel);
+                }
+            }
+            SDL_RenderPresent(renderer);
+            chip.draw_flag = 0;
+        }
     }
 
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
     return 0;
 }
