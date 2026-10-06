@@ -11,6 +11,8 @@
 #include "fontset.h"
 #include "utilities.h"
 
+#define SLOW_STEP 1 // 1 for slow step, 0 for full speed
+
 int main(int argc, char **argv);
 
 int main(int argc, char **argv) {
@@ -94,14 +96,6 @@ int main(int argc, char **argv) {
     bool should_quit = false;
 
     while (should_continue != -1 && should_quit == false) {
-        uint64_t frame_start = now_ns();
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) {
-                should_quit = true;
-            }
-        }
-
         /*
         uint16_t prev_pc = chip.pc;
         uint16_t opcode = fetch_instruction(&chip);
@@ -112,8 +106,11 @@ int main(int argc, char **argv) {
                instruction.nnn);
         */
 
-        for (int i = 0; i < CYCLES_PER_FRAME; i++) {
+        constexpr int cycles = SLOW_STEP ? 1 : CYCLES_PER_FRAME;
+        for (int i = 0; i < cycles; i++) {
             should_continue = execute_instruction(&chip, decode_instruction(fetch_instruction(&chip)));
+            if (should_continue == -1)
+                break;
         }
 
         if (chip.delay_timer > 0)
@@ -138,13 +135,25 @@ int main(int argc, char **argv) {
             chip.draw_flag = 0;
         }
 
-        for (int i = 0; i < 16; i++)
-            printf("V[%d]: 0x%02X\n", i, chip.V[i]);
-        printf("I: 0x%04X\n", chip.I);
-        printf("PC: 0x%04X\n", chip.pc);
+        if (SLOW_STEP) {
+            clear_screen();
 
-        sleep_until(frame_start + FRAME_NS);
-        clear_screen();
+            for (int i = 0; i < 16; i++)
+                printf("V[%d]: 0x%02X\n", i, chip.V[i]);
+            printf("I: 0x%04X\n", chip.I);
+            printf("PC: 0x%04X\n", chip.pc);
+        }
+
+        const uint64_t time = now_ns() + (SLOW_STEP ? 250000000ull : FRAME_NS);
+        while (!should_quit && now_ns() < time) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_EVENT_QUIT) {
+                    should_quit = true;
+                }
+            }
+            sleep_until(now_ns() + 16000000ull);
+        }
     }
 
     SDL_DestroyRenderer(renderer);
