@@ -94,6 +94,7 @@ int main(int argc, char **argv) {
     bool should_quit = false;
 
     while (should_continue != -1 && should_quit == false) {
+        uint64_t frame_start = now_ns();
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
@@ -101,6 +102,7 @@ int main(int argc, char **argv) {
             }
         }
 
+        /*
         uint16_t prev_pc = chip.pc;
         uint16_t opcode = fetch_instruction(&chip);
         Instruction instruction = decode_instruction(opcode);
@@ -108,17 +110,16 @@ int main(int argc, char **argv) {
                "NN: 0x%02X, NNN: 0x%03X \n",
                prev_pc, opcode, instruction.first_nibble, instruction.x, instruction.y, instruction.n, instruction.nn,
                instruction.nnn);
+        */
 
-        should_continue = execute_instruction(&chip, instruction);
+        for (int i = 0; i < CYCLES_PER_FRAME; i++) {
+            should_continue = execute_instruction(&chip, decode_instruction(fetch_instruction(&chip)));
+        }
 
-        for (int i = 0; i < 16; i++)
-            printf("V[%d]: 0x%02X\n", i, chip.V[i]);
-        printf("I: 0x%04X\n", chip.I);
-        printf("PC: 0x%04X\n", chip.pc);
-
-        struct timespec ts = {.tv_sec = 0, .tv_nsec = 2.5e8};
-        nanosleep(&ts, NULL);
-        clear_screen();
+        if (chip.delay_timer > 0)
+            chip.delay_timer--;
+        if (chip.sound_timer > 0)
+            chip.sound_timer--;
 
         if (chip.draw_flag) {
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -136,6 +137,14 @@ int main(int argc, char **argv) {
             SDL_RenderPresent(renderer);
             chip.draw_flag = 0;
         }
+
+        for (int i = 0; i < 16; i++)
+            printf("V[%d]: 0x%02X\n", i, chip.V[i]);
+        printf("I: 0x%04X\n", chip.I);
+        printf("PC: 0x%04X\n", chip.pc);
+
+        sleep_until(frame_start + FRAME_NS);
+        clear_screen();
     }
 
     SDL_DestroyRenderer(renderer);

@@ -9,6 +9,11 @@
 #define DISPLAY_W 64
 #define DISPLAY_H 32
 
+#define IPS 700
+#define FRAME_NS 16666667 // ~1/60 s
+#define CYCLES_PER_FRAME (IPS / 60)
+
+
 typedef struct {
     uint8_t mem[MEM_SIZE];
     uint8_t V[16];
