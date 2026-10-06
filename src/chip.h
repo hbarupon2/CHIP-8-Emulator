@@ -6,17 +6,21 @@
 #define ROM_START 0x200
 #define FONT_START 0x050
 
+#define DISPLAY_W 64
+#define DISPLAY_H 32
+
 typedef struct {
     uint8_t mem[MEM_SIZE];
     uint8_t V[16];
     uint16_t I;
     uint16_t pc;
-    uint8_t display[64 * 32];
+    uint8_t display[DISPLAY_W * DISPLAY_H];
     uint16_t stack[16];
     uint8_t sp;
     uint8_t delay_timer;
     uint8_t sound_timer;
     uint8_t keys[16];
+    uint8_t draw_flag;
 } Chip8;
 
 typedef struct {
