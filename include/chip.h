@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdlib.h>
+#include <SDL3/SDL.h>
 
 #define MEM_SIZE 4096
 #define ROM_START 0x200
@@ -40,3 +41,6 @@ typedef struct {
 uint16_t fetch_instruction(Chip8 *chip);
 Instruction decode_instruction(uint16_t opcode);
 int execute_instruction(Chip8 *chip, Instruction instruction);
+void render_display(Chip8 *chip, SDL_Renderer *renderer);
+void dump_registers(const Chip8 *chip);
+int chip8_key(SDL_Scancode scancode);

@@ -15,6 +15,7 @@
 
 int main(int argc, char **argv);
 
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "Usage: ./CHIP8 path/to/rom \n");
@@ -119,29 +120,11 @@ int main(int argc, char **argv) {
             chip.sound_timer--;
 
         if (chip.draw_flag) {
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_RenderClear(renderer);
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
-            for (int y = 0; y < DISPLAY_H; y++) {
-                for (int x = 0; x < DISPLAY_W; x++) {
-                    if (chip.display[y * DISPLAY_W + x] == 0)
-                        continue;
-                    SDL_FRect pixel = {x, y, 1, 1};
-                    SDL_RenderFillRect(renderer, &pixel);
-                }
-            }
-            SDL_RenderPresent(renderer);
-            chip.draw_flag = 0;
+            render_display(&chip, renderer);
         }
 
         if (SLOW_STEP) {
-            clear_screen();
-
-            for (int i = 0; i < 16; i++)
-                printf("V[%d]: 0x%02X\n", i, chip.V[i]);
-            printf("I: 0x%04X\n", chip.I);
-            printf("PC: 0x%04X\n", chip.pc);
+            dump_registers(&chip);
         }
 
         const uint64_t time = now_ns() + (SLOW_STEP ? 250000000ull : FRAME_NS);
@@ -150,6 +133,11 @@ int main(int argc, char **argv) {
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT) {
                     should_quit = true;
+                }
+                if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
+                    int key = chip8_key(event.key.scancode);
+                    if (key != -1)
+                        chip.keys[key] = event.key.down;
                 }
             }
             sleep_until(now_ns() + 16000000ull);

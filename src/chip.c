@@ -1,6 +1,7 @@
 #include "chip.h"
 
-#include <stdio.h>
+#include <utilities.h>
+#include <SDL3/SDL_main.h>
 
 uint16_t fetch_instruction(Chip8 *chip) {
     const uint16_t opcode = chip->mem[chip->pc] << 8 | chip->mem[chip->pc + 1];
@@ -108,7 +109,7 @@ int execute_instruction(Chip8 *chip, Instruction instruction) {
                         chip->V[0xF] = 0;
                     break;
                 case 0xE:
-                    const uint8_t vx1= chip->V[instruction.x];
+                    const uint8_t vx1 = chip->V[instruction.x];
                     chip->V[instruction.x] = vx1 << 1;
                     chip->V[0xF] = vx1 >> 7;
                     break;
@@ -219,7 +220,55 @@ int execute_instruction(Chip8 *chip, Instruction instruction) {
 
     return 0;
 
-    unimplemented:
+unimplemented:
     printf("Unimplemented opcode: 0x%04X\n", (instruction.first_nibble << 12) | instruction.nnn);
     return -1;
+}
+
+void render_display(Chip8 *chip, SDL_Renderer *renderer) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+    for (int y = 0; y < DISPLAY_H; y++) {
+        for (int x = 0; x < DISPLAY_W; x++) {
+            if (chip->display[y * DISPLAY_W + x] == 0)
+                continue;
+            SDL_FRect pixel = {x, y, 1, 1};
+            SDL_RenderFillRect(renderer, &pixel);
+        }
+    }
+    SDL_RenderPresent(renderer);
+    chip->draw_flag = 0;
+}
+
+void dump_registers(const Chip8 *chip) {
+    clear_screen();
+
+    for (int i = 0; i < 16; i++)
+        printf("V[%d]: 0x%02X\t\tKey[%d]: %d\n", i, chip->V[i], i, chip->keys[i]);
+    printf("I: 0x%04X\n", chip->I);
+    printf("PC: 0x%04X\n", chip->pc);
+}
+
+int chip8_key(const SDL_Scancode scancode) {
+    switch (scancode) {
+        case SDL_SCANCODE_1: return 0x1;
+        case SDL_SCANCODE_2: return 0x2;
+        case SDL_SCANCODE_3: return 0x3;
+        case SDL_SCANCODE_4: return 0xC;
+        case SDL_SCANCODE_Q: return 0x4;
+        case SDL_SCANCODE_W: return 0x5;
+        case SDL_SCANCODE_E: return 0x6;
+        case SDL_SCANCODE_R: return 0xD;
+        case SDL_SCANCODE_A: return 0x7;
+        case SDL_SCANCODE_S: return 0x8;
+        case SDL_SCANCODE_D: return 0x9;
+        case SDL_SCANCODE_F: return 0xE;
+        case SDL_SCANCODE_Z: return 0xA;
+        case SDL_SCANCODE_X: return 0x0;
+        case SDL_SCANCODE_C: return 0xB;
+        case SDL_SCANCODE_V: return 0xF;
+        default: return -1;
+    }
 }
