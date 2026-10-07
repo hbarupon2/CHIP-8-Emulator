@@ -1,0 +1,5 @@
+CLS
+
+LD  V0  0xFF
+LD  V1  0x01
+ADD V0  V1

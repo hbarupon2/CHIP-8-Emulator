@@ -3,7 +3,9 @@
 #include <stdio.h>
 
 static void clear_screen() {
-    printf("\033[2J\033[1;1H");
+    /* Home first. Erasing with 2J before the cursor moves makes Terminal.app
+       push the screen into scrollback and leave the window on the old text. */
+    printf("\033[H\033[2J\033[3J");
     fflush(stdout);
 }
 

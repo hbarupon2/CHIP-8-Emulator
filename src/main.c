@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
             dump_registers(&chip);
         }
 
-        const uint64_t time = now_ns() + (SLOW_STEP ? 250000000ull : FRAME_NS);
+        const uint64_t time = now_ns() + (SLOW_STEP ? 1e9 + 250000000ull : FRAME_NS);
         while (!should_quit && now_ns() < time) {
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
