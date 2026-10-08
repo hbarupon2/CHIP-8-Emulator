@@ -11,7 +11,7 @@
 #include "fontset.h"
 #include "utilities.h"
 
-#define SLOW_STEP 1 // 1 for slow step, 0 for full speed
+#define SLOW_STEP 0 // 1 for slow step, 0 for full speed
 
 int main(int argc, char **argv);
 
