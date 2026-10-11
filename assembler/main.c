@@ -31,6 +31,11 @@ typedef struct {
     uint16_t base;
 } AsmOp;
 
+typedef struct {
+    char name[16];
+    uint16_t address;
+} Label;
+
 static const AsmOp ops[] = {
     {"CLS", NONE, 0x00E0},
     {"RET", NONE, 0x00EE},
@@ -68,6 +73,11 @@ static const AsmOp ops[] = {
     {"LD", VX_I, 0xF065},
 };
 
+Label labels[256];
+int n_labels = 0;
+uint16_t address = 0x200;
+
+
 static const AsmOp *find_op(const char *mnemonic, Shape shape) {
     for (size_t i = 0; i < sizeof(ops) / sizeof(AsmOp); i++) {
         if (ops[i].shape == shape && strcmp(ops[i].mnemonic, mnemonic) == 0)
@@ -98,6 +108,13 @@ static uint16_t encode(const AsmOp *op, int x, int y, int n, int nn, int nnn) {
         default:
             return op->base | ((x & 0xF) << 8);
     }
+}
+
+static bool is_mnemonic(const char *s) {
+    for (size_t i = 0; i < sizeof(ops) / sizeof(AsmOp); i++)
+        if (strcmp(s, ops[i].mnemonic) == 0)
+            return true;
+    return false;
 }
 
 static bool is_reg(const char *s) {
@@ -137,6 +154,15 @@ static Shape get_shape(char tokens[][16], int n) {
     return NONE;
 }
 
+static int operand_address(const char *s) {
+    if (s[0] >= '0' && s[0] <= '9')
+        return (int) strtol(s, nullptr, 0);
+    for (int i = 0; i < n_labels; i++)
+        if (strcmp(s, labels[i].name) == 0)
+            return labels[i].address;
+    return -1;
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) {
         fprintf(stderr, "Usage: assembler <file>\n");
@@ -167,6 +193,7 @@ int main(int argc, char **argv) {
         char *p = buff;
         char tokens[8][16];
         int n = 0;
+
         while (*p != '\0' && *p != '\n' && *p != ';' && n < 8) {
             while (*p == ' ' || *p == '\t' || *p == ',')
                 p++;
@@ -178,15 +205,56 @@ int main(int argc, char **argv) {
                 if (len < 15)
                     tokens[n][len++] = *p;
                 p++;
-            }
+                }
             tokens[n][len] = '\0';
             n++;
         }
         if (n == 0)
             continue;
 
-        Shape shape = get_shape(tokens, n);
-        const AsmOp *op = find_op(tokens[0], shape);
+        int start = 0;
+        if (!is_mnemonic(tokens[0])) {
+            start = 1;
+            strcpy(labels[n_labels].name, tokens[0]);
+            labels[n_labels].address = address;
+            n_labels++;
+        }
+
+        if (n - start > 0)
+            address += 2;
+    }
+
+    rewind(fp);
+
+    while (fgets(buff, sizeof(buff), fp) != nullptr) {
+        char *p = buff;
+        char tokens[8][16];
+        int n = 0;
+
+        while (*p != '\0' && *p != '\n' && *p != ';' && n < 8) {
+            while (*p == ' ' || *p == '\t' || *p == ',')
+                p++;
+            if (*p == '\0' || *p == '\n' || *p == ';')
+                break;
+            int len = 0;
+            while (*p != '\0' && *p != '\n' && *p != ';' &&
+                *p != ' ' && *p != '\t' && *p != ',') {
+                if (len < 15)
+                    tokens[n][len++] = *p;
+                p++;
+                }
+            tokens[n][len] = '\0';
+            n++;
+        }
+        if (n == 0)
+            continue;
+
+        int start = 0;
+        if (!is_mnemonic(tokens[0]))
+            start = 1;
+
+        const Shape shape = get_shape(tokens + start, n - start);
+        const AsmOp *op = find_op(tokens[start], shape);
         if (!op) {
             fprintf(stderr, "Bad instruction: %s", buff);
             fclose(out);
@@ -195,42 +263,52 @@ int main(int argc, char **argv) {
         }
 
         int x = 0, y = 0, nibble = 0, nn = 0, nnn = 0;
+        const char *label;
         switch (shape) {
             case VX:
             case VX_DT:
             case VX_K:
             case VX_I:
-                x = reg(tokens[1]);
+                x = reg(tokens[start + 1]);
                 break;
             case DT_VX:
             case ST_VX:
             case F_VX:
             case B_VX:
             case I_VX:
-                x = reg(tokens[2]);
+                x = reg(tokens[start + 2]);
                 break;
             case VX_BYTE:
-                x = reg(tokens[1]);
-                nn = (int) strtol(tokens[2], nullptr, 0);
+                x = reg(tokens[start + 1]);
+                nn = (int) strtol(tokens[start + 2], nullptr, 0);
                 break;
             case VX_VY:
-                x = reg(tokens[1]);
-                y = reg(tokens[2]);
+                x = reg(tokens[start + 1]);
+                y = reg(tokens[start + 2]);
                 break;
             case VX_VY_N:
-                x = reg(tokens[1]);
-                y = reg(tokens[2]);
-                nibble = (int) strtol(tokens[3], nullptr, 0);
+                x = reg(tokens[start + 1]);
+                y = reg(tokens[start + 2]);
+                nibble = (int) strtol(tokens[start + 3], nullptr, 0);
                 break;
             case ADDR:
-                nnn = (int) strtol(tokens[1], nullptr, 0);
+                label = tokens[start + 1];
+                nnn = operand_address(label);
                 break;
             case V0_ADDR:
             case I_ADDR:
-                nnn = (int) strtol(tokens[2], nullptr, 0);
+                label = tokens[start + 2];
+                nnn = operand_address(label);
                 break;
             default:
                 break;
+        }
+
+        if (nnn < 0) {
+            fprintf(stderr, "Unknown label: %s\n", label);
+            fclose(out);
+            fclose(fp);
+            return -1;
         }
 
         const uint16_t word = encode(op, x, y, nibble, nn, nnn);
