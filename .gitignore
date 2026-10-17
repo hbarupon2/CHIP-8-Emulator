@@ -69,3 +69,4 @@ CMakeUserPresets.json
 .cache
 build
 .idea
+.DS_Store
